@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "Betting_App",
-    "slug": "Betting_App",
+    "name": "Balance_App",
+    "slug": "balance-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/images.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -19,12 +19,22 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/images.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.freire5.Balance_App"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/images.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "aa374633-c102-49eb-95f3-fbc1681e8833"
+      }
+    },
+    "owner": "freire5",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
