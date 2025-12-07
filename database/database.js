@@ -85,7 +85,7 @@ const getRows = (result) => result;
 export const createTables = async () => {
   await connectDb();
 
-  await resetDatabase();
+  // await resetDatabase();
 
   try {
     // ----- Tables -----
@@ -192,82 +192,6 @@ export const createTables = async () => {
     await executeSql(
       `INSERT OR IGNORE INTO casino_budget (id, balance) VALUES (1, 0);`
     );
-
-    // 🚨 INITIAL DUMMY DATA 🚨
-    // Initial entities
-    await executeSql(
-      `INSERT OR IGNORE INTO sport (id, sport_name) VALUES (1, 'Football');`
-    );
-    await executeSql(
-      `INSERT OR IGNORE INTO sport (id, sport_name) VALUES (2, 'Basketball');`
-    );
-    await executeSql(
-      `INSERT OR IGNORE INTO sport (id, sport_name) VALUES (3, 'Tennis');`
-    );
-    await executeSql(
-      `INSERT OR IGNORE INTO house (id, house_name) VALUES (1, 'DraftKings');`
-    );
-    await executeSql(
-      `INSERT OR IGNORE INTO house (id, house_name) VALUES (2, 'BetMGM');`
-    );
-    await executeSql(
-      `INSERT OR IGNORE INTO house (id, house_name) VALUES (3, 'FanDuel');`
-    );
-    await executeSql(
-      `INSERT OR IGNORE INTO game (id, game_name) VALUES (1, 'BlackJack');`
-    );
-    await executeSql(
-      `INSERT OR IGNORE INTO game (id, game_name) VALUES (2, 'Roulette');`
-    );
-
-    // --- SAMPLE SPORT BETS ---
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (50.00, 150.00, 3, 1, 1, DATE('now', '-1 day'));`
-    ); // WIN
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (100.00, 0.00, 1, 2, 2, DATE('now', '-1 day'));`
-    ); // LOSS
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (20.00, 20.00, 2, 1, 3, DATE('now'));`
-    ); // PUSH
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (30.00, 90.00, 4, 3, 1, DATE('now', '-2 days'));`
-    ); // WIN
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (75.00, 0.00, 1, 1, 1, DATE('now', '-3 days'));`
-    ); // LOSS
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (40.00, 80.00, 2, 2, 2, DATE('now'));`
-    ); // WIN
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (10.00, 0.00, 1, 3, 3, DATE('now'));`
-    ); // LOSS
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (200.00, 1000.00, 5, 1, 1, DATE('now', '-4 days'));`
-    ); // WIN
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (5.00, 15.00, 2, 2, 2, DATE('now', '-4 days'));`
-    ); // WIN
-    await executeSql(
-      `INSERT INTO bet (amount_bet, amount_won, legs, sport_id, house_id, betted_at) VALUES (100.00, 0.00, 1, 1, 3, DATE('now', '-5 days'));`
-    ); // LOSS
-
-    // --- SAMPLE CASINO BETS ---
-    await executeSql(
-      `INSERT INTO casino_bet (amount_bet, amount_won, game_id, house_id, betted_at) VALUES (50.00, 100.00, 1, 1, DATE('now', '-2 days'));`
-    ); // WIN
-    await executeSql(
-      `INSERT INTO casino_bet (amount_bet, amount_won, game_id, house_id, betted_at) VALUES (10.00, 0.00, 2, 2, DATE('now', '-1 day'));`
-    ); // LOSS
-    await executeSql(
-      `INSERT INTO casino_bet (amount_bet, amount_won, game_id, house_id, betted_at) VALUES (20.00, 0.00, 1, 1, DATE('now'));`
-    ); // LOSS
-    await executeSql(
-      `INSERT INTO casino_bet (amount_bet, amount_won, game_id, house_id, betted_at) VALUES (5.00, 50.00, 2, 3, DATE('now', '-3 days'));`
-    ); // WIN
-    await executeSql(
-      `INSERT INTO casino_bet (amount_bet, amount_won, game_id, house_id, betted_at) VALUES (10.00, 10.00, 1, 2, DATE('now', '-4 days'));`
-    ); // PUSH
 
     console.log(
       "Database tables, indexes, triggers, and comprehensive test data initialized successfully."

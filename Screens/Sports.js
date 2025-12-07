@@ -26,7 +26,7 @@ import {
   getProfitBySport,
   insertSport,
   insertHouse,
-} from "./database";
+} from "../database/database";
 import SafeViewAndroid from "./SafeViewAndroid";
 
 // --- CONSTANTS MOVED HERE TO FIX REFERENCE ERRORS ---
@@ -414,7 +414,7 @@ const Sports = () => {
           )}
 
           {renderSelectionCard(
-            "Select Bet House",
+            "Select House",
             houses,
             selectedHouse,
             handleHouseSelect,
@@ -426,7 +426,7 @@ const Sports = () => {
             <Text style={styles.cardTitle}>Transaction Details</Text>
             <View style={styles.inputArea}>
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Amount Bet (€)</Text>
+                <Text style={styles.inputLabel}>Bet Amount (€)</Text>
                 <TextInput
                   style={styles.inputField}
                   placeholder="0.00"
@@ -438,7 +438,7 @@ const Sports = () => {
               </View>
 
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Potential Payout (€)</Text>
+                <Text style={styles.inputLabel}>Payout (€)</Text>
                 <TextInput
                   style={styles.inputField}
                   placeholder={"0.00"}

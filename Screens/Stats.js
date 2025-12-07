@@ -8,15 +8,9 @@ import {
   Dimensions,
   ActivityIndicator, 
 } from "react-native";
-// ADDED useMemo for chart data optimization
-import React, { useState, useEffect, useMemo } from "react"; 
+import React, { useState, useEffect } from "react"; 
 import SafeViewAndroid from "./SafeViewAndroid";
-// CORRECTED IMPORT
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { LineChart } from "react-native-chart-kit";
-
-// Import the new aggregation helper (ASSUMING PATH IS CORRECT)
-import { calculateProfitChartData } from "../utils/statsAggregator"; 
 
 // ALL DATABASE FUNCTIONS
 import {
@@ -26,53 +20,37 @@ import {
    getAllGames, 
    getProfitBySportAndHouse, 
    getProfitByGameAndHouse, 
-} from "./database"; 
+} from "../database/database"; 
 
 
-// --- CONSTANTS ---
-const { width: screenWidth } = Dimensions.get("window");
-const CHART_PERIODS = [
-    { key: '7d', label: '7 Days' },
-    { key: '4w', label: '4 Weeks' },
-    { key: '6m', label: '6 Months' },
-    { key: '4y', label: '4 Years' },
-];
+// --- CONSTANTS (Light Theme) ---
 const COLORS = {
   primary: "#4C6EF5", 
   secondary: "#17CAE6", 
-  background: "#071A2F", 
-  card: "#122A46", 
-  positive: "#10B981", 
-  negative: "#EF4444", 
-  textLight: "#FFFFFF",
-  textGray: "#A9B4C4",
-  border: "#2C405A",
+  background: "#FFFFFF", // White background
+  card: "#F8F9FA", // Light gray/off-white card background
+  positive: "#10B981", // Green (Profit)
+  negative: "#EF4444", // Red (Loss)
+  textDark: "#212529", // Dark Text for readability
+  textGray: "#6C757D", // Medium Gray for secondary text
+  border: "#DEE2E6", // Light border
 };
 
 // --- INITIAL STATE (ZERO-FILLED) ---
-const INITIAL_CHART_DATA = {
-    '7d': { labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'], datasets: [{ data: [0, 0, 0, 0, 0, 0, 0] }] },
-    '4w': { labels: ['W1', 'W2', 'W3', 'W4'], datasets: [{ data: [0, 0, 0, 0] }] },
-    '6m': { labels: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'], datasets: [{ data: [0, 0, 0, 0, 0, 0] }] },
-    '4y': { labels: ['Y1', 'Y2', 'Y3', 'Y4'], datasets: [{ data: [0, 0, 0, 0] }] },
-};
-
 const INITIAL_STATE = {
   SPORTS: {
     totalPL: 0, totalRisked: 0, winRate: "0.00%", bets: 0,
     stats: { wins: 0, losses: 0, pushes: 0, total: 0 },
-    charts: INITIAL_CHART_DATA, 
     singleBreakdown: [], combinedBreakdown: [],
   },
   CASINO: {
     totalPL: 0, totalRisked: 0, winRate: "0.00%", bets: 0,
     stats: { wins: 0, losses: 0, pushes: 0, total: 0 },
-    charts: INITIAL_CHART_DATA, 
     singleBreakdown: [], combinedBreakdown: [],
   },
 };
 
-// --- Sub-Components (RESTORED DEFINITIONS) ---
+// --- Sub-Components ---
 
 const StatsToggle = ({ activeTab, setActiveTab }) => (
     <View style={toggleStyles.container}>
@@ -150,8 +128,8 @@ const SingleBreakdownList = ({ data, title }) => {
     );
 
     return (
-        <View style={[styles.chartContainer, { marginBottom: 10 }]}>
-        <Text style={styles.chartTitle}>{title}</Text>
+        <View style={[styles.breakdownCard, { marginBottom: 10 }]}> 
+        <Text style={styles.cardTitle}>{title}</Text>
         <View style={breakdownStyles.container}>
             {content}
         </View>
@@ -172,8 +150,11 @@ const CombinedBreakdownList = ({ data, activeTab }) => {
 
         return (
         <View key={item.id} style={breakdownStyles.itemRow}>
-            <View style={breakdownStyles.itemLeft}>
-            <Text style={[breakdownStyles.itemName, { maxWidth: "35%" }]}>
+            {/* itemLeft is flexible and handles the two names */}
+            <View style={breakdownStyles.itemLeft}> 
+            
+            {/* Removed maxWidth and text-cutting props */}
+            <Text style={breakdownStyles.itemName}>
                 {item[primaryKey]} 
             </Text>
 
@@ -184,10 +165,16 @@ const CombinedBreakdownList = ({ data, activeTab }) => {
                 style={{ marginHorizontal: 5 }}
             />
 
+            {/* Removed maxWidth and text-cutting props */}
             <Text
                 style={[
                 breakdownStyles.itemName,
-                { color: COLORS.textGray, maxWidth: "35%" },
+                { 
+                    color: COLORS.textGray, 
+                    // ADDED: This ensures the house name takes only the space it needs
+                    // and allows the entire itemLeft container to wrap if required.
+                    flexShrink: 1, 
+                }, 
                 ]}
             >
                 {item.house}
@@ -209,8 +196,8 @@ const CombinedBreakdownList = ({ data, activeTab }) => {
     );
 
     return (
-        <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>
+        <View style={styles.breakdownCard}> 
+        <Text style={styles.cardTitle}>
             {primaryLabel} & House Profit Combinations
         </Text>
 
@@ -221,40 +208,12 @@ const CombinedBreakdownList = ({ data, activeTab }) => {
     );
 };
 
-const ChartPeriodToggle = ({ activePeriod, setActivePeriod }) => (
-    <View style={chartToggleStyles.container}>
-        {CHART_PERIODS.map(period => (
-            <TouchableOpacity
-                key={period.key}
-                style={[
-                    chartToggleStyles.button,
-                    activePeriod === period.key && chartToggleStyles.activeButton,
-                ]}
-                onPress={() => setActivePeriod(period.key)}
-            >
-                <Text style={[
-                    chartToggleStyles.text,
-                    activePeriod === period.key && chartToggleStyles.activeText,
-                ]}>
-                    {period.label}
-                </Text>
-            </TouchableOpacity>
-        ))}
-    </View>
-);
-
 
 // --- MAIN COMPONENT ---
 const Stats = () => {
     const [activeTab, setActiveTab] = useState("sports");
-    const [chartPeriod, setChartPeriod] = useState('7d'); 
     const [statsData, setStatsData] = useState(INITIAL_STATE); 
     const [loading, setLoading] = useState(true); 
-
-    // Memoize the chart data to prevent unnecessary recalculations
-    const currentChartData = useMemo(() => {
-        return statsData[activeTab.toUpperCase()].charts[chartPeriod] || INITIAL_STATE.SPORTS.charts[chartPeriod];
-    }, [statsData, activeTab, chartPeriod]);
 
     // --- REAL DATA FETCHING AND PROCESSING LOGIC ---
     const fetchData = async () => {
@@ -283,17 +242,7 @@ const Stats = () => {
             const sportsWinRate = sportsTotal > 0 ? ((sportsWins / sportsTotal) * 100).toFixed(2) + '%' : '0.00%';
             const casinoWinRate = casinoTotal > 0 ? ((casinoWins / casinoTotal) * 100).toFixed(2) + '%' : '0.00%';
 
-            // --- 3. Calculate CHART DATA for all periods ---
-            const sportCharts = {};
-            const casinoCharts = {};
-            
-            for (const period of CHART_PERIODS) {
-                // Ensure calculateProfitChartData is correctly imported and available
-                sportCharts[period.key] = calculateProfitChartData(betsArray, period.key);
-                casinoCharts[period.key] = calculateProfitChartData(casinoBetsArray, period.key);
-            }
-            
-            // --- 4. Build Breakdown Lists (Single and Combined) ---
+            // --- 3. Build Breakdown Lists (Single and Combined) ---
             
             let sportsSingleBreakdown = [];
             let casinoSingleBreakdown = [];
@@ -304,21 +253,23 @@ const Stats = () => {
             // Single Breakdowns (Sport/Game and House)
             for (let sport of sportsArray) {
                 const profit = await getProfitBySport(sport.id);
-                sportsSingleBreakdown.push({ id: sport.id, name: sport.sport_name, type: 'Sport', profit: profit || 0 }); 
+                sportsSingleBreakdown.push({ id: sport.id, name: sport.sport_name || sport.name, type: 'Sport', profit: profit || 0 }); 
             }
             for (let game of gamesArray) {
                 const profit = await getProfitByGame(game.id);
-                casinoSingleBreakdown.push({ id: game.id, name: game.game_name, type: 'Game', profit: profit || 0 }); 
+                casinoSingleBreakdown.push({ id: game.id, name: game.game_name || game.name, type: 'Game', profit: profit || 0 }); 
             }
             for (let house of housesArray) {
                 const sportProfit = await getSportProfitByHouse(house.id);
                 const casinoProfit = await getCasinoProfitByHouse(house.id);
                 
+                const houseName = house.house_name || house.name;
+
                 if (sportProfit !== undefined && sportProfit !== null) {
-                    sportsSingleBreakdown.push({ id: house.id + 'H', name: house.house_name, type: 'House', profit: sportProfit }); 
+                    sportsSingleBreakdown.push({ id: house.id + 'H', name: houseName, type: 'House', profit: sportProfit }); 
                 }
                 if (casinoProfit !== undefined && casinoProfit !== null) {
-                    casinoSingleBreakdown.push({ id: house.id + 'H', name: house.house_name, type: 'House', profit: casinoProfit }); 
+                    casinoSingleBreakdown.push({ id: house.id + 'H', name: houseName, type: 'House', profit: casinoProfit }); 
                 }
             }
 
@@ -327,7 +278,7 @@ const Stats = () => {
                 for (let house of housesArray) {
                     const profit = await getProfitBySportAndHouse(sport.id, house.id);
                     if (profit !== null) {
-                        sportsCombinedBreakdown.push({ id: idCounter++, sport: sport.sport_name, house: house.house_name, profit: profit || 0 });
+                        sportsCombinedBreakdown.push({ id: idCounter++, sport: sport.sport_name || sport.name, house: house.house_name || house.name, profit: profit || 0 });
                     }
                 }
             }
@@ -335,12 +286,12 @@ const Stats = () => {
                 for (let house of housesArray) {
                     const profit = await getProfitByGameAndHouse(game.id, house.id);
                     if (profit !== null) {
-                        casinoCombinedBreakdown.push({ id: idCounter++, game: game.game_name, house: house.house_name, profit: profit || 0 });
+                        casinoCombinedBreakdown.push({ id: idCounter++, game: game.game_name || game.name, house: house.house_name || house.name, profit: profit || 0 });
                     }
                 }
             }
             
-            // --- 5. Construct Final Data Object ---
+            // --- 4. Construct Final Data Object ---
             const newStats = {
                 SPORTS: {
                     totalPL: sportBalance,
@@ -348,7 +299,6 @@ const Stats = () => {
                     winRate: sportsWinRate,
                     bets: sportsTotal,
                     stats: { wins: sportsWins, losses: sportsTotal - sportsWins, pushes: 0, total: sportsTotal },
-                    charts: sportCharts, 
                     singleBreakdown: sportsSingleBreakdown, 
                     combinedBreakdown: sportsCombinedBreakdown, 
                 },
@@ -358,7 +308,6 @@ const Stats = () => {
                     winRate: casinoWinRate,
                     bets: casinoTotal,
                     stats: { wins: casinoWins, losses: casinoTotal - casinoWins, pushes: 0, total: casinoTotal },
-                    charts: casinoCharts, 
                     singleBreakdown: casinoSingleBreakdown, 
                     combinedBreakdown: casinoCombinedBreakdown,
                 },
@@ -383,19 +332,6 @@ const Stats = () => {
     const currentData = statsData[activeTab.toUpperCase()];
     const isSports = activeTab === "sports";
 
-    const chartConfig = {
-        backgroundGradientFrom: COLORS.card,
-        backgroundGradientTo: COLORS.card,
-        decimalPlaces: 0,
-        color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-        labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity * 0.7})`,
-        propsForDots: {
-        r: "6",
-        strokeWidth: "2",
-        stroke: COLORS.secondary,
-        },
-    };
-
     const profitColor =
         currentData.totalPL >= 0 ? COLORS.positive : COLORS.negative;
 
@@ -411,8 +347,8 @@ const Stats = () => {
     if (loading) {
         return (
             <SafeAreaView style={[SafeViewAndroid.AndroidSafeArea, styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color={COLORS.secondary} />
-                <Text style={{ color: COLORS.textGray, marginTop: 10 }}>Loading statistics...</Text>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={{ color: COLORS.textDark, marginTop: 10 }}>Loading statistics...</Text>
             </SafeAreaView>
         );
     }
@@ -442,34 +378,9 @@ const Stats = () => {
             <SummaryCard
                 title="Total Bets"
                 value={currentData.stats.total.toString()}
-                color={COLORS.textGray}
+                color={COLORS.textDark}
                 iconName="calculator"
             />
-            </View>
-
-            {/* --- LINE CHART: P/L OVER TIME --- */}
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>P/L Trend (Cumulative)</Text>
-                
-                {/* Chart Period Toggle */}
-                <ChartPeriodToggle activePeriod={chartPeriod} setActivePeriod={setChartPeriod} />
-
-                {/* Line Chart */}
-                {currentChartData.labels.length > 0 ? (
-                    <LineChart
-                        data={currentChartData}
-                        width={screenWidth - 30}
-                        height={220}
-                        chartConfig={chartConfig}
-                        bezier
-                        style={styles.chartStyle}
-                        formatYLabel={(y) => `${y}€`}
-                    />
-                ) : (
-                    <View style={styles.noChartData}>
-                        <Text style={styles.noChartText}>No bet data recorded in this period.</Text>
-                    </View>
-                )}
             </View>
 
             {/* --- 1. SINGLE BREAKDOWN (SPORT/GAME) --- */}
@@ -495,43 +406,12 @@ const Stats = () => {
 
 export default Stats;
 
-// --- STYLES ---
-
-const chartToggleStyles = StyleSheet.create({
-    container: {
-        flexDirection: "row",
-        justifyContent: 'space-around',
-        backgroundColor: COLORS.background,
-        borderRadius: 10,
-        overflow: "hidden",
-        height: 35,
-        width: '90%',
-        marginBottom: 10,
-    },
-    button: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 5,
-    },
-    activeButton: {
-        backgroundColor: COLORS.primary,
-    },
-    text: {
-        color: COLORS.textGray,
-        fontSize: 12,
-        fontWeight: "500",
-    },
-    activeText: {
-        color: COLORS.textLight,
-        fontWeight: 'bold',
-    },
-});
+// --- STYLES (Light Theme) ---
 
 const toggleStyles = StyleSheet.create({
     container: {
         flexDirection: "row",
-        backgroundColor: COLORS.border,
+        backgroundColor: COLORS.border, 
         borderRadius: 10,
         overflow: "hidden",
         height: 40,
@@ -543,15 +423,15 @@ const toggleStyles = StyleSheet.create({
         paddingHorizontal: 15,
     },
     activeButton: {
-        backgroundColor: COLORS.secondary,
+        backgroundColor: COLORS.secondary, 
     },
     text: {
-        color: COLORS.textLight,
+        color: COLORS.textDark, 
         fontSize: 15,
         fontWeight: "600",
     },
     activeText: {
-        color: COLORS.background,
+        color: COLORS.background, 
     },
 });
 
@@ -564,7 +444,7 @@ const summaryStyles = StyleSheet.create({
     },
     card: {
         flex: 1,
-        backgroundColor: COLORS.card,
+        backgroundColor: COLORS.card, 
         padding: 10,
         borderRadius: 10,
         alignItems: "center",
@@ -573,7 +453,7 @@ const summaryStyles = StyleSheet.create({
         borderColor: COLORS.border,
     },
     title: {
-        color: COLORS.textGray,
+        color: COLORS.textGray, 
         fontSize: 12,
         marginTop: 5,
     },
@@ -596,12 +476,14 @@ const breakdownStyles = StyleSheet.create({
         alignItems: "center",
         paddingVertical: 10,
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: COLORS.border, 
     },
     itemLeft: {
         flexDirection: "row",
         alignItems: "center",
         flexShrink: 1,
+        // The key to allowing the names to take up two lines if needed:
+        flexWrap: 'wrap', 
     },
     itemType: {
         fontSize: 12,
@@ -610,9 +492,10 @@ const breakdownStyles = StyleSheet.create({
     },
     itemName: {
         fontSize: 15,
-        color: COLORS.textLight,
+        color: COLORS.textDark, 
         fontWeight: "500",
         marginRight: 5,
+        // The item name itself can now wrap if needed within itemLeft
     },
     itemProfit: {
         fontSize: 16,
@@ -631,39 +514,27 @@ const breakdownStyles = StyleSheet.create({
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS.background, 
     },
     scrollView: {
         flex: 1,
     },
-    chartContainer: {
+    breakdownCard: {
         marginVertical: 10,
         padding: 5,
-        alignItems: "center",
-        backgroundColor: COLORS.card,
+        backgroundColor: COLORS.card, 
         marginHorizontal: 15,
         borderRadius: 15,
+        borderWidth: 1, 
+        borderColor: COLORS.border, 
     },
-    chartTitle: {
+    cardTitle: {
         fontSize: 16,
         fontWeight: "bold",
-        color: COLORS.textLight,
+        color: COLORS.textDark, 
         alignSelf: "flex-start",
         marginLeft: 15,
         marginTop: 10,
         marginBottom: 5,
     },
-    chartStyle: {
-        borderRadius: 15,
-    },
-    noChartData: {
-        height: 220,
-        width: screenWidth - 30,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    noChartText: {
-        color: COLORS.textGray,
-        fontSize: 14,
-    }
 });

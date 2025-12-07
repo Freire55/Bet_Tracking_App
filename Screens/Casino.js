@@ -25,7 +25,7 @@ import {
   insertHouse,
   insertCasinoBet,
   getAllCasinoBets,
-} from "./database";
+} from "../database/database";
 import SafeViewAndroid from "./SafeViewAndroid";
 
 // --- CONSTANTS MOVED HERE TO FIX REFERENCE ERRORS ---
@@ -400,7 +400,7 @@ const Casino = () => {
           showsVerticalScrollIndicator={false}
         >
           {renderSelectionCard(
-            "Select game",
+            "Select Game",
             options,
             selectedGame,
             handleGameSelect,
@@ -408,7 +408,7 @@ const Casino = () => {
           )}
 
           {renderSelectionCard(
-            "Select Bet House",
+            "Select House",
             houses,
             selectedHouse,
             handleHouseSelect,

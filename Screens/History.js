@@ -20,7 +20,7 @@ import {
     getAllSports,
     getAllGames,
     // Add getAllGames when casino bets are fully implemented
-} from "./database";
+} from "../database/database";
 
 // --- CONSTANTS ---
 const COLORS = {

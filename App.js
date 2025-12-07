@@ -2,7 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import StackNavigator from './StackNavigator';
 import React, { useEffect, useState } from 'react'; // 👈 Import useState
 import { ActivityIndicator, View, StyleSheet } from 'react-native'; // 👈 For loading screen
-import { connectDb, createTables } from './Screens/database'; // 👈 Import both connectDb and createTables
+import { connectDb, createTables } from './database/database'; // 👈 Import both connectDb and createTables
 import SideBar from './components/SideBar';
 
 export default function App() {
