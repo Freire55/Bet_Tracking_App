@@ -5,243 +5,397 @@ import {
   SafeAreaView,
   StyleSheet,
   TouchableOpacity,
-  Alert,
+  Platform, // Added Platform for potential OS specific styling
 } from "react-native";
 import React, { useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import SafeViewAndroid from "./SafeViewAndroid";
 import { useNavigation } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome5, MaterialIcons } from "@expo/vector-icons";
+import { 
+    getAllBets, 
+    getAllCasinoBets, 
+    getTotalCasinoRisked, 
+    getTotalSportsRisked,
+    getAllHouses, 
+    getAllSports,
+    getAllGames,
+    // Add getAllGames when casino bets are fully implemented
+} from "./database";
+
+// --- CONSTANTS ---
+const COLORS = {
+  primary: "#4C6EF5", 
+  accent: "#FF4DF7", 
+  background: "#F5F8FD", 
+  card: "#FFFFFF", 
+  positive: "#10B981", 
+  negative: "#EF4444", 
+  textDark: "#0C1536", 
+  textGray: "#718096", 
+  border: "#E2E8F0", 
+};
+
+const HistoryToggle = ({ activeTab, setActiveTab }) => (
+    <View style={toggleStyles.container}>
+        <TouchableOpacity
+            style={[
+                toggleStyles.button,
+                activeTab === 'sports' && toggleStyles.activeButton
+            ]}
+            onPress={() => setActiveTab('sports')}
+        >
+            <Text style={[
+                toggleStyles.text,
+                activeTab === 'sports' && toggleStyles.activeText
+            ]}>
+                🏀 Sports
+            </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+            style={[
+                toggleStyles.button,
+                activeTab === 'casino' && toggleStyles.activeButton
+            ]}
+            onPress={() => setActiveTab('casino')}
+        >
+            <Text style={[
+                toggleStyles.text,
+                activeTab === 'casino' && toggleStyles.activeText
+            ]}>
+                🎰 Casino
+            </Text>
+        </TouchableOpacity>
+    </View>
+);
 
 const History = () => {
   const navigation = useNavigation();
 
-  const goHome = () => {
-    navigation.navigate("Home");
-  };
+  // New state to manage the view choice
+  const [activeTab, setActiveTab] = useState('sports'); 
 
-  const goStats = () => {
-    navigation.navigate("Stats");
-  };
+  const [betsHistory, setBetsHistory] = useState([]);
+  const [CasinoBetsHistory, setCasinoBetsHistory] = useState([]);
+  const [sportsRisked, setSportsRisked] = useState(0);
+  const [casinoRisked, setCasinoRisked] = useState(0);
 
-  const [history, setHistory] = useState([]);
-
-  const icons = [
-    { label: "NBA", icon: "basketball", color: "#17CAE6" },
-    { label: "Futebol", icon: "football", color: "#17CAE6" },
-    { label: "Others", icon: "cash", color: "#17CAE6" },
-  ];
+  const [sportMap, setSportMap] = useState({}); 
+  const [houseMap, setHouseMap] = useState({});
+  const [gameMap, setGameMap] = useState({}); // Needed for Casino view
 
   const retrieveHistory = async () => {
-    setHistory(JSON.parse(await AsyncStorage.getItem("transactions")) || []);
+    try {
+        // Fetch all necessary data concurrently
+        const [betsArray, casinoBetsArray, houses, sports, games, totalSportsRisked, totalCasinoRisked] = await Promise.all([
+            getAllBets(),
+            getAllCasinoBets(),
+            getAllHouses(),
+            getAllSports(),
+            getAllGames(),
+            getTotalSportsRisked(),
+            getTotalCasinoRisked(),
+            // You may want to fetch getAllGames() here too
+        ]);
 
-    // GET TOTAL RISKED
-  };
+        // Create lookup maps
+        const sportLookup = sports.reduce((acc, s) => ({ ...acc, [s.id]: s.sport_name }), {});
+        const houseLookup = houses.reduce((acc, h) => ({ ...acc, [h.id]: h.house_name }), {});
+        const gameLookup = games.reduce((acc, s) => ({...acc, [s.id] : s.game_name}), {})
 
-  const getRisked = () => {
-    let risked = 0;
-    history.map((transaction, index) => {
-      risked += transaction[1];
-    });
-    return risked;
-  };
-
-  const deleteBet = async (index) => {
-    Alert.alert(
-      "Delete Bet",
-      "Are you sure you want to delete this bet?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Delete",
-          onPress: async () => {
-            // Retrieve the selected bet to modify totals and ratios
-            const betToDelete = history[history.length - index - 1];
-            const [selectedItem, bet, payout, legs, date, result] = betToDelete;
-
-            // Update the win-loss ratio based on the result of the bet
-            const winsKey = `${selectedItem}_wins`;
-            const lossesKey = `${selectedItem}_losses`;
-            const totalKey = selectedItem;
-
-            const savedWins =
-              JSON.parse(await AsyncStorage.getItem(winsKey)) || 0;
-            const savedLosses =
-              JSON.parse(await AsyncStorage.getItem(lossesKey)) || 0;
-            const savedTotal =
-              JSON.parse(await AsyncStorage.getItem(totalKey)) || 0;
-
-            // Adjust totals and W-L ratios depending on result
-            if (result === "Win") {
-              await AsyncStorage.setItem(
-                winsKey,
-                JSON.stringify(savedWins - 1)
-              );
-            } else if (result === "Loss") {
-              await AsyncStorage.setItem(
-                lossesKey,
-                JSON.stringify(savedLosses - 1)
-              );
-            }
-
-            // Update the total for the specific sport
-            const updatedTotal = savedTotal - (payout - bet);
-            await AsyncStorage.setItem(totalKey, JSON.stringify(updatedTotal));
-
-            // Remove the bet at the specified index
-            let updatedBets = [...history];
-            updatedBets.splice(history.length - index - 1, 1);
-            setHistory(updatedBets);
-
-            // Update AsyncStorage with the updated bets array
-            await AsyncStorage.setItem(
-              "transactions",
-              JSON.stringify(updatedBets)
-            );
-          },
-          style: "destructive",
-        },
-      ],
-      { cancelable: true }
-    );
-  };
+        // Set state for data and lookups
+        setBetsHistory(betsArray.reverse()); // Reverse immediately for chronological view
+        setCasinoBetsHistory(casinoBetsArray.reverse());
+        setSportsRisked(totalSportsRisked);
+        setCasinoRisked(totalCasinoRisked);
+        setSportMap(sportLookup);
+        setHouseMap(houseLookup);
+        setGameMap(gameLookup);
+    } catch (error) {
+        console.error("Failed to retrieve history data:", error);
+    }
+  }
 
   useEffect(() => {
     retrieveHistory();
   }, []);
 
+  const renderBetCard = (transaction, type) => {
+    const isSports = type === 'sports';
+    
+    // Determine which fields to pull based on type
+    const amount_bet = transaction.amount_bet;
+    const amount_won = transaction.amount_won;
+    const house_id = transaction.house_id;
+    const betted_at = transaction.betted_at;
+    
+    // Sports specific
+    const legs = isSports ? transaction.legs : null;
+    const sport_id = isSports ? transaction.sport_id : null;
+    
+    // Casino specific
+    const game_id = !isSports ? transaction.game_id : null;
+
+    const profit_loss = amount_won - amount_bet;
+    const amountColor = profit_loss >= 0 ? COLORS.positive : COLORS.negative;
+    const profitText = `${profit_loss >= 0 ? '+' : ''}${profit_loss.toFixed(2)}€`;
+    
+    // --- Use lookup maps for names ---
+    const primaryName = isSports 
+        ? (sportMap[sport_id] || 'Unknown Sport')
+        : (gameMap[game_id] || 'Unknown Game'); // Needs gameMap implementation
+    const houseName = houseMap[house_id] || 'Unknown House';
+    
+    // --- Format the date ---
+    const formattedDate = new Date(betted_at).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric'
+    });
+    
+    // Icon Logic
+    const IconComponent = isSports ? FontAwesome5 : MaterialIcons;
+    const iconName = isSports ? "futbol" : "casino"; // Simple icon choice
+
+    return (
+      <TouchableOpacity
+        key={transaction.id} // Use unique ID as key
+        style={styles.card}
+      >
+        {/* LEFT SECTION: Icon and House Name */}
+        <View style={styles.iconContainer}>
+            <IconComponent name={iconName} size={24} color={COLORS.primary} />
+            <Text style={styles.houseNameText}>{houseName}</Text>
+        </View>
+
+        {/* MIDDLE SECTION: Amounts and Legs/Game */}
+        <View style={styles.detailsContainer}>
+            <Text style={styles.betSummaryText}>
+                {amount_bet.toFixed(2)}€ {'->'} {amount_won.toFixed(2)}€
+            </Text>
+            
+            <View style={styles.detailsRow}>
+                {isSports ? (
+                    <Text style={styles.legsText}>
+                        {legs} leg-parlay
+                    </Text>
+                ) : (
+                    <Text style={styles.legsText}>
+                        Casino Wager
+                    </Text>
+                )}
+                <Text style={[styles.profitText, { color: amountColor }]}>
+                    {profitText}
+                </Text>
+            </View>
+        </View>
+
+        {/* RIGHT SECTION: Sport/Game Name and Date */}
+        <View style={styles.sportNameContainer}>
+            <Text style={styles.sportNameText}>{primaryName}</Text>
+            <Text style={styles.dateText}>{formattedDate}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Determine which list to display
+  const currentHistory = activeTab === 'sports' ? betsHistory : CasinoBetsHistory;
+  const totalRisked = activeTab === 'sports' ? sportsRisked : casinoRisked;
+
   return (
     <SafeAreaView style={[SafeViewAndroid.AndroidSafeArea, styles.screen]}>
-      <View className="h-full">
-        {/* HEADER */}
-        <View style={styles.header}>
-          {/* Week, Month, Year Tabs */}
-          <View className="w-full flex flex-row justify-between">
-            <TouchableOpacity onPress={goHome}>
-              <Text className="text-white">Go Back</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={goStats}>
-              <Text className="text-white">Stats</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Currency */}
-        </View>
-
-        {/* HISTORY */}
-        <View className="h-full">
-          <Text className="text-white self-center mt-3">
-            TOTAL BETTED: {getRisked()}€
+        
+      {/* TOTALS HEADER */}
+      <View style={styles.totalsHeader}>
+          <Text style={styles.totalRiskedTitle}>
+            TOTAL {activeTab.toUpperCase()} RISKED:
           </Text>
-          <ScrollView className="mt-5 mb-16" alwaysBounceVertical>
-            {history
-              .slice()
-              .reverse()
-              .map((transaction, index) => {
-                const iconObject = icons.find(
-                  (icon) => icon.label === transaction[0]
-                );
-
-                // Fallback to default values if no match is found
-                const iconName = iconObject ? iconObject.icon : "help"; // default icon
-                const iconColor = iconObject ? iconObject.color : "#A9A9A9"; // default color
-                return (
-                  <TouchableOpacity
-                    onLongPress={() => deleteBet(index)}
-                    key={index}
-                    className={
-                      index === history.length - 1
-                        ? "mx-3 px-3 mb-5 bg-darkNavy "
-                        : "mx-3 px-3 bg-darkNavy "
-                    }
-                    style={styles.card}
-                  >
-                    <Ionicons name={iconName} size={44} color={iconColor} />
-                    <View style={styles.leftContainer}>
-                      {/* Assuming these icons are the transaction icons */}
-                      <Text
-                        style={styles.recordText1}
-                        className="text-lg font-semibold"
-                      >
-                        {transaction[1]}€ -{">  " + transaction[2]}€
-                      </Text>
-                      <View className="flex flex-row mt-4">
-                        <Text style={styles.recordText} className="text-sm">
-                          {transaction[3]} leg-parlay
-                        </Text>
-                        <Text style={styles.recordText} className="text-sm">
-                          Resulted in a {transaction[5]}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View
-                      style={styles.rightContainer}
-                      className="justify-between h-full py-3"
-                    >
-                      <Text style={styles.amountText}>{transaction[4]}</Text>
-                      <Text style={styles.sportText}>{transaction[0]}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-          </ScrollView>
-        </View>
+          <Text style={styles.totalRiskedAmount}>
+            {totalRisked.toFixed(2)}€
+          </Text>
       </View>
+      
+      {/* TOGGLE BUTTONS */}
+      <View style={{ paddingHorizontal: 15, paddingVertical: 10 }}>
+          <HistoryToggle activeTab={activeTab} setActiveTab={setActiveTab} />
+      </View>
+      
+      {/* HISTORY LIST */}
+      <ScrollView style={styles.scrollView} alwaysBounceVertical>
+          {currentHistory.length > 0 ? (
+              currentHistory.map((item, index) => renderBetCard(item, activeTab))
+          ) : (
+              <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No {activeTab} history found.</Text>
+                  <Text style={styles.emptyTextSmall}>Time to place a bet!</Text>
+              </View>
+          )}
+          <View style={{ height: 30 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 export default History;
 
+// --- TOGGLE STYLES ---
+const toggleStyles = StyleSheet.create({
+    container: {
+        flexDirection: 'row',
+        backgroundColor: COLORS.border,
+        borderRadius: 10,
+        overflow: 'hidden',
+        height: 40,
+    },
+    button: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 15,
+    },
+    activeButton: {
+        backgroundColor: COLORS.primary,
+        ...Platform.select({
+            ios: {
+                borderRadius: 9, // Slightly smaller on iOS for nested look
+            },
+        }),
+    },
+    text: {
+        color: COLORS.textDark,
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    activeText: {
+        color: COLORS.card, // White text for active button
+    },
+});
+
+
+// --- HISTORY STYLES ---
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#071A2F", // Dark navy background
+    backgroundColor: COLORS.background, 
   },
-  header: {
-    backgroundColor: "#071A2F", // Dark navy background
-    height: 50,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    marginTop: 10,
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 15,
   },
+  
+  // --- HEADER TOTALS ---
+  totalsHeader: {
+    padding: 15,
+    backgroundColor: COLORS.card, 
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    alignItems: 'center',
+    marginBottom: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  totalRiskedTitle: {
+    color: COLORS.textGray,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  totalRiskedAmount: {
+    color: COLORS.textDark,
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+  
+  // --- CARD STYLING ---
   card: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    height: 95,
-    borderWidth: 0.8, // Thickness of the border
-    borderColor: "#7f8c8d", // Color of the border
+    minHeight: 85,
+    padding: 15,
+    marginVertical: 6,
+    backgroundColor: COLORS.card,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  leftContainer: {
-    alignItems: "center",
+  
+  // --- CARD SECTIONS ---
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 60,
   },
-  recordText: {
-    color: "#fff",
-    marginLeft: 10,
+  houseNameText: {
+      color: COLORS.textGray,
+      fontSize: 10,
+      marginTop: 2,
+      textAlign: 'center',
   },
-  recordText1: {
-    color: "#17CAE6",
-    marginLeft: 10,
+  
+  detailsContainer: {
+    flex: 1,
+    marginLeft: 15,
+    justifyContent: 'center',
   },
-  rightContainer: {
-    alignItems: "flex-end",
+  betSummaryText: {
+    color: COLORS.textDark,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 5,
   },
-  amountText: {
-    color: "#17CAE6",
-    // color: "#CC3EBF",
-    fontWeight: "bold",
+  detailsRow: {
+    flexDirection: 'row',
+    marginTop: 5,
+    justifyContent: 'space-between',
+    width: '95%',
   },
-  sportText: {
-    color: "#fff",
+  legsText: {
+    color: COLORS.textGray,
     fontSize: 12,
-    fontWeight: "500",
   },
+  profitText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+
+  sportNameContainer: {
+    width: 90, 
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingLeft: 10,
+  },
+  sportNameText: {
+    color: COLORS.textDark,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  dateText: { 
+    color: COLORS.textGray,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  
+  // --- EMPTY STATE ---
+  emptyContainer: {
+    padding: 30,
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: COLORS.textGray,
+    marginBottom: 5,
+  },
+  emptyTextSmall: {
+    fontSize: 14,
+    color: COLORS.textGray,
+  }
 });
