@@ -87,7 +87,7 @@ export const createTables = async () => {
 
   // await resetDatabase();
 
-  try {
+  try { 
     // ----- Tables -----
     await executeSql(`
       CREATE TABLE IF NOT EXISTS sport (
@@ -241,6 +241,51 @@ export const insertCasinoBet = async ({
     [amount_bet, amount_won, game_id, house_id]
   );
 };
+
+export const updateSportBet = async ({
+  bet_id,
+  amount_bet,
+  amount_won,
+  legs,
+  sport_id,
+  casino_id,
+}) => {
+  return await executeSql(
+    `
+      UPDATE bet
+      SET amount_bet = ?, amount_won = ?, legs = ?, sport_id = ?, house_id = ?
+      WHERE id = ?;
+    `,
+    [amount_bet, amount_won, legs, sport_id, casino_id, bet_id]
+  )
+}
+
+export const updateCasinoBet = async({
+  bet_id,
+  amount_bet,
+  amount_won,
+  game_id,
+  house_id,
+}) => {
+  return await executeSql(
+    `
+      UPDATE casino_bet
+      SET amount_bet = ?, amount_won = ?, game_id = ?, house_id = ?
+      WHERE id = ?;
+    `,
+    [amount_bet, amount_won, game_id, house_id, bet_id]
+  )
+}
+
+export const destroy = async (transaction_id) => {
+  await executeSql(
+    `DELETE FROM bet WHERE id = ?`, [transaction_id]
+  )
+  return await executeSql(
+    `DELETE FROM casino_bet WHERE id = ?`,
+    [transaction_id]
+  )
+}
 
 // ----------------- READ QUERIES -----------------
 export const getAllBets = async () => {

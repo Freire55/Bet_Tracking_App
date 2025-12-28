@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import React, { useState, useEffect } from "react"; 
 import SafeViewAndroid from "./SafeViewAndroid";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"; 
 
 // ALL DATABASE FUNCTIONS
 import {

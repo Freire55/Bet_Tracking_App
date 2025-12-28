@@ -57,8 +57,8 @@ const Sports = () => {
   const [info, setInfo] = useState(false);
   const [selectedSport, setSelectedSport] = useState(null);
   const [selectedHouse, setSelectedHouse] = useState(null);
-  const [bet, setBet] = useState(0);
-  const [payout, setPayout] = useState(0);
+  const [bet, setBet] = useState("");
+  const [payout, setPayout] = useState("");
   const [legs, setLegs] = useState(0);
   const [house, setHouse] = useState("");
 
@@ -115,13 +115,30 @@ const Sports = () => {
     setSelectedHouse(item.label);
   };
 
-  const handleBetChange = (text) => {
-    setBet(parseFloat(text) || 0);
-  };
+  // Locate and replace handleBetChange and handlePayoutChange:
 
-  const handlePayoutChange = (text) => {
-    setPayout(parseFloat(text) || 0);
-  };
+const handleBetChange = (text) => {
+  // 1. Normalize the text: Replace comma (,) with period (.)
+  const normalizedText = text.replace(/,/g, '.');
+
+  // 2. REGEX check: Only allow empty string, one decimal point, and digits.
+  // This prevents inputs like '5..2', '5.2.2', or random letters.
+  const regex = /^\d*\.?\d*$/; 
+
+  if (regex.test(normalizedText)) {
+    setBet(normalizedText); 
+  }
+  // If the input is invalid (e.g., trying to type a second '.'), it is ignored.
+};
+
+const handlePayoutChange = (text) => {
+  const normalizedText = text.replace(/,/g, '.');
+  const regex = /^\d*\.?\d*$/; 
+
+  if (regex.test(normalizedText)) {
+    setPayout(normalizedText); 
+  }
+};
 
   const handleLegsChange = (text) => {
     setLegs(parseInt(text) || 0);
@@ -431,7 +448,7 @@ const Sports = () => {
                   style={styles.inputField}
                   placeholder="0.00"
                   placeholderTextColor="#A0AEC0"
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   onChangeText={handleBetChange}
                   value={bet >= 0 ? String(bet) : ""}
                 />
@@ -470,7 +487,7 @@ const Sports = () => {
           <TouchableOpacity
             style={styles.button}
             onPress={
-              bet > 0 && selectedSport && selectedHouse && legs > 0
+              bet >= 0 && selectedSport && selectedHouse && legs > 0
                 ? handleTransaction
                 : handleNoInfo
             }

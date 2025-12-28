@@ -56,8 +56,8 @@ const Casino = () => {
   const [info, setInfo] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
   const [selectedHouse, setSelectedHouse] = useState(null);
-  const [bet, setBet] = useState(0);
-  const [payout, setPayout] = useState(0);
+  const [bet, setBet] = useState("");
+  const [payout, setPayout] = useState("");
   const [legs, setLegs] = useState(0);
 
   const [betHouses, setBetHouses] = useState([]);
@@ -112,17 +112,30 @@ const Casino = () => {
     setSelectedHouse(item.label);
   };
 
-  const handleBetChange = (text) => {
-    setBet(parseFloat(text) || 0);
-  };
+  // Locate and replace handleBetChange and handlePayoutChange:
 
-  const handlePayoutChange = (text) => {
-    setPayout(parseFloat(text) || 0);
-  };
+const handleBetChange = (text) => {
+  // 1. Normalize the text: Replace comma (,) with period (.)
+  const normalizedText = text.replace(/,/g, '.');
 
-  const handleLegsChange = (text) => {
-    setLegs(parseInt(text) || 0);
-  };
+  // 2. REGEX check: Only allow empty string, one decimal point, and digits.
+  // This prevents inputs like '5..2', '5.2.2', or random letters.
+  const regex = /^\d*\.?\d*$/; 
+
+  if (regex.test(normalizedText)) {
+    setBet(normalizedText); 
+  }
+  // If the input is invalid (e.g., trying to type a second '.'), it is ignored.
+};
+
+const handlePayoutChange = (text) => {
+  const normalizedText = text.replace(/,/g, '.');
+  const regex = /^\d*\.?\d*$/; 
+
+  if (regex.test(normalizedText)) {
+    setPayout(normalizedText); 
+  }
+};
 
   const handleNewHouseChange = (text) => {
     setNewHouse(text || "");
@@ -449,7 +462,7 @@ const Casino = () => {
           <TouchableOpacity
             style={styles.button}
             onPress={
-              bet > 0 && selectedGame && selectedHouse
+              bet >= 0 && selectedGame && selectedHouse
                 ? handleTransaction
                 : handleNoInfo
             }
