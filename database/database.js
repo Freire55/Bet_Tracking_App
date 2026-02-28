@@ -185,6 +185,46 @@ export const createTables = async () => {
       END;
     `);
 
+    // ----- Trigger: update budget on delete -----
+    await executeSql(`
+      CREATE TRIGGER IF NOT EXISTS update_budget_after_bet_delete
+      AFTER DELETE ON bet
+      BEGIN
+          UPDATE sport_budget
+          SET balance = balance - (OLD.amount_won - OLD.amount_bet)
+          WHERE id = 1;
+      END;
+    `);
+    await executeSql(`
+      CREATE TRIGGER IF NOT EXISTS update_budget_after_casino_bet_delete
+      AFTER DELETE ON casino_bet
+      BEGIN
+          UPDATE casino_budget
+          SET balance = balance - (OLD.amount_won - OLD.amount_bet)
+          WHERE id = 1;
+      END;
+    `);
+
+    // ----- Trigger: update budget on update -----
+    await executeSql(`
+      CREATE TRIGGER IF NOT EXISTS update_budget_after_bet_update
+      AFTER UPDATE ON bet
+      BEGIN
+          UPDATE sport_budget
+          SET balance = balance - (OLD.amount_won - OLD.amount_bet) + (NEW.amount_won - NEW.amount_bet)
+          WHERE id = 1;
+      END;
+    `);
+    await executeSql(`
+      CREATE TRIGGER IF NOT EXISTS update_budget_after_casino_bet_update
+      AFTER UPDATE ON casino_bet
+      BEGIN
+          UPDATE casino_budget
+          SET balance = balance - (OLD.amount_won - OLD.amount_bet) + (NEW.amount_won - NEW.amount_bet)
+          WHERE id = 1;
+      END;
+    `);
+
     // Ensure default budget rows exist
     await executeSql(
       `INSERT OR IGNORE INTO sport_budget (id, balance) VALUES (1, 0);`
@@ -317,16 +357,16 @@ export const getAllGames = async () => {
 
 export const getTotalSportsBalance = async () => {
   const rows = await executeSql(
-    `SELECT balance FROM sport_budget WHERE id = 1;`
+    `SELECT SUM(amount_won - amount_bet) AS total_profit FROM bet;`
   );
-  return getRows(rows)[0]?.balance || 0;
+  return rows[0]?.total_profit || 0;
 };
 
 export const getTotalCasinoBalance = async () => {
   const rows = await executeSql(
-    `SELECT balance FROM casino_budget WHERE id = 1;`
+    `SELECT SUM(amount_won - amount_bet) AS total_profit FROM casino_bet;`
   );
-  return getRows(rows)[0]?.balance || 0;
+  return rows[0]?.total_profit || 0;
 };
 
 export const getProfitBySport = async (sport_id) => {

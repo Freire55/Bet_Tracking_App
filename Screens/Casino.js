@@ -28,7 +28,7 @@ import {
 } from "../database/database";
 import SafeViewAndroid from "./SafeViewAndroid";
 
-// --- CONSTANTS MOVED HERE TO FIX REFERENCE ERRORS ---
+// --- CONSTANTS ---
 const { width } = Dimensions.get("window");
 
 const COLORS = {

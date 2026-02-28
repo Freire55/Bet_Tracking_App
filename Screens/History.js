@@ -144,8 +144,8 @@ const History = () => {
       );
 
       // Set state for data and lookups
-      setBetsHistory(betsArray.reverse()); // Reverse immediately for chronological view
-      setCasinoBetsHistory(casinoBetsArray.reverse());
+      setBetsHistory(betsArray); 
+      setCasinoBetsHistory(casinoBetsArray);
       setSportsRisked(totalSportsRisked);
       setCasinoRisked(totalCasinoRisked);
       setSportMap(sportLookup);

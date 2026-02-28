@@ -9,6 +9,7 @@ import {
   ActivityIndicator, 
 } from "react-native";
 import React, { useState, useEffect } from "react"; 
+import { useFocusEffect } from "@react-navigation/native";
 import SafeViewAndroid from "./SafeViewAndroid";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"; 
 
@@ -148,12 +149,14 @@ const CombinedBreakdownList = ({ data, activeTab }) => {
         const profitColor = item.profit >= 0 ? COLORS.positive : COLORS.negative;
         const profitSign = item.profit >= 0 ? "+" : "";
 
+        if (item.profit == 0) {
+            return;
+        }
+
         return (
         <View key={item.id} style={breakdownStyles.itemRow}>
-            {/* itemLeft is flexible and handles the two names */}
             <View style={breakdownStyles.itemLeft}> 
             
-            {/* Removed maxWidth and text-cutting props */}
             <Text style={breakdownStyles.itemName}>
                 {item[primaryKey]} 
             </Text>
@@ -165,14 +168,11 @@ const CombinedBreakdownList = ({ data, activeTab }) => {
                 style={{ marginHorizontal: 5 }}
             />
 
-            {/* Removed maxWidth and text-cutting props */}
             <Text
                 style={[
                 breakdownStyles.itemName,
                 { 
                     color: COLORS.textGray, 
-                    // ADDED: This ensures the house name takes only the space it needs
-                    // and allows the entire itemLeft container to wrap if required.
                     flexShrink: 1, 
                 }, 
                 ]}
@@ -323,10 +323,12 @@ const Stats = () => {
         }
     };
 
-    // Run the data fetch only on mount
-    useEffect(() => {
-        fetchData();
-    }, []);
+    // Run the data fetch whenever the screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchData();
+        }, [])
+    );
 
     // --- UI Logic uses the state data ---
     const currentData = statsData[activeTab.toUpperCase()];
@@ -406,7 +408,7 @@ const Stats = () => {
 
 export default Stats;
 
-// --- STYLES (Light Theme) ---
+// --- STYLES ---
 
 const toggleStyles = StyleSheet.create({
     container: {
@@ -482,7 +484,6 @@ const breakdownStyles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         flexShrink: 1,
-        // The key to allowing the names to take up two lines if needed:
         flexWrap: 'wrap', 
     },
     itemType: {
@@ -495,7 +496,6 @@ const breakdownStyles = StyleSheet.create({
         color: COLORS.textDark, 
         fontWeight: "500",
         marginRight: 5,
-        // The item name itself can now wrap if needed within itemLeft
     },
     itemProfit: {
         fontSize: 16,
