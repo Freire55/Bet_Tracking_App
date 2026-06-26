@@ -83,6 +83,54 @@ const HistoryToggle = ({ activeTab, setActiveTab }) => (
   </View>
 );
 
+const BetCard = React.memo(({ transaction, type, onLongPress }) => {
+  const isSports = type === "sports";
+  const profit_loss = transaction.amount_won - transaction.amount_bet;
+  const amountColor = profit_loss >= 0 ? COLORS.positive : COLORS.negative;
+  const profitText = `${profit_loss >= 0 ? "+" : ""}${profit_loss.toFixed(2)}€`;
+
+  const formattedDate = new Date(transaction.betted_at).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  return (
+    <TouchableOpacity style={styles.card} onLongPress={onLongPress}>
+      {/* LEFT SECTION */}
+      <View style={styles.iconContainer}>
+        {isSports ? (
+          <FontAwesome5 name="futbol" size={24} color={COLORS.primary} />
+        ) : (
+          <MaterialIcons name="casino" size={24} color={COLORS.primary} />
+        )}
+        <Text style={styles.houseNameText}>{transaction.house_name}</Text>
+      </View>
+
+      {/* MIDDLE SECTION */}
+      <View style={styles.detailsContainer}>
+        <Text style={styles.betSummaryText}>
+          {transaction.amount_bet.toFixed(2)}€ → {transaction.amount_won.toFixed(2)}€
+        </Text>
+        <View style={styles.detailsRow}>
+          <Text style={styles.legsText}>
+            {isSports ? `${transaction.legs} leg-parlay` : "Casino Wager"}
+          </Text>
+          <Text style={[styles.profitText, { color: amountColor }]}>{profitText}</Text>
+        </View>
+      </View>
+
+      {/* RIGHT SECTION */}
+      <View style={styles.sportNameContainer}>
+        <Text style={styles.sportNameText}>
+          {isSports ? transaction.sport_name : transaction.game_name}
+        </Text>
+        <Text style={styles.dateText}>{formattedDate}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 const History = () => {
   const [activeTab, setActiveTab] = useState("sports");
 
@@ -147,34 +195,45 @@ const History = () => {
   };
 
   const editBet = async () => {
-    try {
-      if (currentType === "sports") {
-        await updateSportBet({
-          bet_id: currentTransaction.id,
-          amount_bet: parseFloat(editFormData.amount_bet),
-          amount_won: parseFloat(editFormData.amount_won),
-          legs: parseInt(editFormData.legs),
-          sport_id: parseInt(editFormData.sport_id),
-          casino_id: parseInt(editFormData.house_id),
-        });
-      } else {
-        await updateCasinoBet({
-          bet_id: currentTransaction.id,
-          amount_bet: parseFloat(editFormData.amount_bet),
-          amount_won: parseFloat(editFormData.amount_won),
-          game_id: parseInt(editFormData.game_id),
-          house_id: parseInt(editFormData.house_id),
-        });
-      }
-      setEditModalVisibility(false);
-      setCurrentTransaction(null);
-      await retrieveHistory();
-      Alert.alert("Success", "Bet updated successfully");
-    } catch (error) {
-      console.error("trouble editing bet", error);
-      Alert.alert("Error", "Failed to update bet");
+  try {
+    const updatedTransaction = { 
+      ...currentTransaction, 
+      ...editFormData,
+      amount_bet: parseFloat(editFormData.amount_bet),
+      amount_won: parseFloat(editFormData.amount_won)
+    };
+
+    if (currentType === "sports") {
+      await updateSportBet({
+        bet_id: currentTransaction.id,
+        amount_bet: updatedTransaction.amount_bet,
+        amount_won: updatedTransaction.amount_won,
+        legs: parseInt(editFormData.legs),
+        sport_id: parseInt(editFormData.sport_id),
+        house_id: parseInt(editFormData.house_id), // Note: Fixed 'casino_id' typo from your original code
+      });
+      // Update local state without re-fetching
+      setBetsHistory(prev => prev.map(b => b.id === currentTransaction.id ? { ...b, ...updatedTransaction } : b));
+    } else {
+      await updateCasinoBet({
+        bet_id: currentTransaction.id,
+        amount_bet: updatedTransaction.amount_bet,
+        amount_won: updatedTransaction.amount_won,
+        game_id: parseInt(editFormData.game_id),
+        house_id: parseInt(editFormData.house_id),
+      });
+      // Update local state without re-fetching
+      setCasinoBetsHistory(prev => prev.map(b => b.id === currentTransaction.id ? { ...b, ...updatedTransaction } : b));
     }
-  };
+    
+    setEditModalVisibility(false);
+    setCurrentTransaction(null);
+    Alert.alert("Success", "Bet updated successfully");
+  } catch (error) {
+    console.error("trouble editing bet", error);
+    Alert.alert("Error", "Failed to update bet");
+  }
+};
 
   const openActionModal = (transaction, type) => {
     setCurrentTransaction(transaction);
@@ -396,83 +455,7 @@ const History = () => {
     retrieveHistory();
   }, []);
 
-  const renderBetCard = (transaction, type) => {
-    const isSports = type === "sports";
-
-    // fields
-    const amount_bet = transaction.amount_bet;
-    const amount_won = transaction.amount_won;
-    const house_id = transaction.house_id;
-    const betted_at = transaction.betted_at;
-
-    // sport
-    const legs = isSports ? transaction.legs : null;
-    const sport_id = isSports ? transaction.sport_id : null;
-
-    // casino
-    const game_id = !isSports ? transaction.game_id : null;
-
-    const profit_loss = amount_won - amount_bet;
-    const amountColor = profit_loss >= 0 ? COLORS.positive : COLORS.negative;
-    const profitText = `${profit_loss >= 0 ? "+" : ""}${profit_loss.toFixed(
-      2
-    )}€`;
-
-    // names
-    const primaryName = isSports 
-      ? transaction.sport_name 
-      : transaction.game_name;
-    const houseName = transaction.house_name;
-
-    // date
-    const formattedDate = new Date(betted_at).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-
-    // icon
-    const IconComponent = isSports ? FontAwesome5 : MaterialIcons;
-    const iconName = isSports ? "futbol" : "casino";
-
-    return (
-      <TouchableOpacity
-        key={transaction.id}
-        style={styles.card}
-        onLongPress={() => openActionModal(transaction, type)}
-      >
-        {/* LEFT SECTION: Icon and House Name */}
-        <View style={styles.iconContainer}>
-          <IconComponent name={iconName} size={24} color={COLORS.primary} />
-          <Text style={styles.houseNameText}>{houseName}</Text>
-        </View>
-
-        {/* MIDDLE SECTION: Amounts and Legs/Game */}
-        <View style={styles.detailsContainer}>
-          <Text style={styles.betSummaryText}>
-            {amount_bet.toFixed(2)}€ {"->"} {amount_won.toFixed(2)}€
-          </Text>
-
-          <View style={styles.detailsRow}>
-            {isSports ? (
-              <Text style={styles.legsText}>{legs} leg-parlay</Text>
-            ) : (
-              <Text style={styles.legsText}>Casino Wager</Text>
-            )}
-            <Text style={[styles.profitText, { color: amountColor }]}>
-              {profitText}
-            </Text>
-          </View>
-        </View>
-
-        {/* RIGHT SECTION: Sport/Game Name and Date */}
-        <View style={styles.sportNameContainer}>
-          <Text style={styles.sportNameText}>{primaryName}</Text>
-          <Text style={styles.dateText}>{formattedDate}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  
 
   // Determine which list to display
   const currentHistory =
@@ -522,19 +505,30 @@ const History = () => {
 
       {/* HISTORY LIST */}
       <FlatList
-        style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 30 }} 
-        data={currentHistory}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => renderBetCard(item, activeTab)}
-        alwaysBounceVertical={true}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No {activeTab} history found.</Text>
-            <Text style={styles.emptyTextSmall}>Time to place a bet!</Text>
-          </View>
-        }
-      />
+  style={styles.scrollView}
+  contentContainerStyle={{ paddingBottom: 30 }} 
+  data={currentHistory}
+  keyExtractor={(item) => item.id.toString()}
+  // Use the memoized BetCard component here
+  renderItem={({ item }) => (
+    <BetCard 
+      transaction={item} 
+      type={activeTab} 
+      onLongPress={() => openActionModal(item, activeTab)} 
+    />
+  )}
+  removeClippedSubviews={true}
+  maxToRenderPerBatch={10}
+  windowSize={5}
+  initialNumToRender={15}
+  alwaysBounceVertical={true}
+  ListEmptyComponent={
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyText}>No {activeTab} history found.</Text>
+      <Text style={styles.emptyTextSmall}>Time to place a bet!</Text>
+    </View>
+  }
+/>
     </SafeAreaView>
   );
 };
