@@ -1,8 +1,8 @@
 import { NavigationContainer } from '@react-navigation/native';
 import StackNavigator from './StackNavigator';
-import React, { useEffect, useState } from 'react'; // 👈 Import useState
-import { ActivityIndicator, View, StyleSheet } from 'react-native'; // 👈 For loading screen
-import { connectDb, createTables } from './database/database'; // 👈 Import both connectDb and createTables
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { connectDb, createTables } from './database/database';
 import SideBar from './components/SideBar';
 
 export default function App() {
@@ -11,25 +11,18 @@ export default function App() {
   useEffect(() => {
     async function initializeDatabase() {
       try {
-        // 1. AWAIT the database connection
         await connectDb(); 
-        
-        // 2. AWAIT the table creation
         await createTables(); 
-        
-        // 3. Mark the database as ready
         setIsDbReady(true);
         console.log("Database initialized successfully.");
       } catch (error) {
         console.error("Failed to initialize database:", error);
-        // Handle error state (e.g., show an error screen)
       }
     }
 
     initializeDatabase();
   }, []);
 
-  // Show a loading screen while the database is being initialized
   if (!isDbReady) {
     return (
       <View style={styles.loadingContainer}>
@@ -38,7 +31,6 @@ export default function App() {
     );
   }
 
-  // Once the database is ready, render the navigation stack
   return (
     <NavigationContainer>
       <StackNavigator />

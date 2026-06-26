@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  FlatList,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import SafeViewAndroid from "./SafeViewAndroid";
@@ -25,6 +26,11 @@ import {
   destroy,
   updateCasinoBet,
   updateSportBet,
+  getBetsWithDetails,
+  getCasinoBetsWithDetails,
+  insertSport, 
+  insertGame,  
+  insertHouse,
 } from "../database/database";
 
 // --- CONSTANTS ---
@@ -78,9 +84,6 @@ const HistoryToggle = ({ activeTab, setActiveTab }) => (
 );
 
 const History = () => {
-  // const navigation = useNavigation();
-
-  // New state to manage the view choice
   const [activeTab, setActiveTab] = useState("sports");
 
   const [betsHistory, setBetsHistory] = useState([]);
@@ -88,16 +91,19 @@ const History = () => {
   const [sportsRisked, setSportsRisked] = useState(0);
   const [casinoRisked, setCasinoRisked] = useState(0);
 
-  const [sportMap, setSportMap] = useState({});
-  const [houseMap, setHouseMap] = useState({});
-  const [gameMap, setGameMap] = useState({});
-
   const [modalVisibility, setModalVisibility] = useState(false);
   const [editModalVisibility, setEditModalVisibility] = useState(false);
   const [currentTransaction, setCurrentTransaction] = useState(null);
   const [currentType, setCurrentType] = useState(null);
 
-  // Edit form state
+  const [sportsList, setSportsList] = useState([]);
+  const [gamesList, setGamesList] = useState([]);
+  const [housesList, setHousesList] = useState([]);
+
+  const [newItemModalVisible, setNewItemModalVisible] = useState(false);
+  const [newItemType, setNewItemType] = useState(""); 
+  const [newItemName, setNewItemName] = useState("");
+
   const [editFormData, setEditFormData] = useState({
     amount_bet: '',
     amount_won: '',
@@ -109,63 +115,34 @@ const History = () => {
 
   const retrieveHistory = async () => {
     try {
-      // Fetch all necessary data concurrently
       const [
         betsArray,
         casinoBetsArray,
-        houses,
-        sports,
-        games,
         totalSportsRisked,
         totalCasinoRisked,
+        sportsData, 
+        gamesData,  
+        housesData, 
       ] = await Promise.all([
-        getAllBets(),
-        getAllCasinoBets(),
-        getAllHouses(),
-        getAllSports(),
-        getAllGames(),
+        getBetsWithDetails(),       
+        getCasinoBetsWithDetails(), 
         getTotalSportsRisked(),
         getTotalCasinoRisked(),
-        // You may want to fetch getAllGames() here too
+        getAllSports(), 
+        getAllGames(),  
+        getAllHouses(), 
       ]);
 
-      // Create lookup maps
-      const sportLookup = sports.reduce(
-        (acc, s) => ({ ...acc, [s.id]: s.sport_name }),
-        {}
-      );
-      const houseLookup = houses.reduce(
-        (acc, h) => ({ ...acc, [h.id]: h.house_name }),
-        {}
-      );
-      const gameLookup = games.reduce(
-        (acc, s) => ({ ...acc, [s.id]: s.game_name }),
-        {}
-      );
+      setBetsHistory(betsArray || []); 
+      setCasinoBetsHistory(casinoBetsArray || []);
+      setSportsRisked(totalSportsRisked || 0);
+      setCasinoRisked(totalCasinoRisked || 0);
+      setSportsList(sportsData || []); 
+      setGamesList(gamesData || []);   
+      setHousesList(housesData || []); 
 
-      // Set state for data and lookups
-      setBetsHistory(betsArray); 
-      setCasinoBetsHistory(casinoBetsArray);
-      setSportsRisked(totalSportsRisked);
-      setCasinoRisked(totalCasinoRisked);
-      setSportMap(sportLookup);
-      setHouseMap(houseLookup);
-      setGameMap(gameLookup);
     } catch (error) {
       console.error("Failed to retrieve history data:", error);
-    }
-  };
-
-  const deleteBet = async (transaction) => {
-    try {
-      await destroy(transaction.id);
-      setModalVisibility(false);
-      setCurrentTransaction(null);
-      await retrieveHistory(); // Refresh the list
-      Alert.alert("Success", "Bet deleted successfully");
-    } catch (error) {
-      console.error("trouble deleting bet", error);
-      Alert.alert("Error", "Failed to delete bet");
     }
   };
 
@@ -191,7 +168,7 @@ const History = () => {
       }
       setEditModalVisibility(false);
       setCurrentTransaction(null);
-      await retrieveHistory(); // Refresh the list
+      await retrieveHistory();
       Alert.alert("Success", "Bet updated successfully");
     } catch (error) {
       console.error("trouble editing bet", error);
@@ -212,7 +189,6 @@ const History = () => {
   };
 
   const openEditModal = () => {
-    // Populate form with current transaction data
     setEditFormData({
       amount_bet: currentTransaction.amount_bet.toString(),
       amount_won: currentTransaction.amount_won.toString(),
@@ -288,6 +264,51 @@ const History = () => {
     );
   };
 
+  const handleCreateNewItem = async () => {
+    if (!newItemName.trim()) return;
+    try {
+      if (newItemType === "sport") await insertSport(newItemName);
+      if (newItemType === "game") await insertGame(newItemName);
+      if (newItemType === "house") await insertHouse(newItemName);
+
+      await retrieveHistory();
+      setNewItemModalVisible(false);
+      setNewItemName("");
+    } catch (error) {
+      console.error("Failed to create new item:", error);
+    }
+  };
+
+  const renderSelectionList = (items, selectedId, onSelect, type) => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={modalStyles.selectionScroll}>
+      {items.map(item => {
+        const isSelected = selectedId == item.id;
+        const label = item.sport_name || item.game_name || item.house_name;
+        return (
+          <TouchableOpacity
+            key={item.id}
+            style={[modalStyles.selectionPill, isSelected && modalStyles.selectedPill]}
+            onPress={() => onSelect(item.id.toString())}
+          >
+            <Text style={[modalStyles.selectionText, isSelected && modalStyles.selectedText]}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+      <TouchableOpacity
+        style={modalStyles.selectionPillAdd}
+        onPress={() => {
+          setNewItemType(type);
+          setNewItemModalVisible(true);
+        }}
+      >
+        <Ionicons name="add" size={14} color={COLORS.primary} />
+        <Text style={[modalStyles.selectionText, { marginLeft: 2 }]}>New</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
   const renderEditModal = () => {
     if (!currentTransaction) return null;
     const isSports = currentType === "sports";
@@ -333,38 +354,23 @@ const History = () => {
                     placeholder="Number of legs"
                   />
 
-                  <Text style={modalStyles.label}>Sport ID</Text>
-                  <TextInput
-                    style={modalStyles.input}
-                    value={editFormData.sport_id}
-                    onChangeText={(text) => setEditFormData({ ...editFormData, sport_id: text })}
-                    keyboardType="number-pad"
-                    placeholder="Sport ID"
-                  />
+                    {/* sport */}
+                  <Text style={modalStyles.label}>Sport</Text>
+                  {renderSelectionList(sportsList, editFormData.sport_id, (id) => setEditFormData({ ...editFormData, sport_id: id }), "sport")}
                 </>
               )}
 
               {!isSports && (
                 <>
-                  <Text style={modalStyles.label}>Game ID</Text>
-                  <TextInput
-                    style={modalStyles.input}
-                    value={editFormData.game_id}
-                    onChangeText={(text) => setEditFormData({ ...editFormData, game_id: text })}
-                    keyboardType="number-pad"
-                    placeholder="Game ID"
-                  />
+                    {/* game */}
+                  <Text style={modalStyles.label}>Game</Text>
+                  {renderSelectionList(gamesList, editFormData.game_id, (id) => setEditFormData({ ...editFormData, game_id: id }), "game")}
                 </>
               )}
 
-              <Text style={modalStyles.label}>House ID</Text>
-              <TextInput
-                style={modalStyles.input}
-                value={editFormData.house_id}
-                onChangeText={(text) => setEditFormData({ ...editFormData, house_id: text })}
-                keyboardType="number-pad"
-                placeholder="House ID"
-              />
+                {/* house */}
+              <Text style={modalStyles.label}>Betting House</Text>
+              {renderSelectionList(housesList, editFormData.house_id, (id) => setEditFormData({ ...editFormData, house_id: id }), "house")}
 
               <TouchableOpacity
                 style={[modalStyles.button, modalStyles.saveButton]}
@@ -393,17 +399,17 @@ const History = () => {
   const renderBetCard = (transaction, type) => {
     const isSports = type === "sports";
 
-    // Determine which fields to pull based on type
+    // fields
     const amount_bet = transaction.amount_bet;
     const amount_won = transaction.amount_won;
     const house_id = transaction.house_id;
     const betted_at = transaction.betted_at;
 
-    // Sports specific
+    // sport
     const legs = isSports ? transaction.legs : null;
     const sport_id = isSports ? transaction.sport_id : null;
 
-    // Casino specific
+    // casino
     const game_id = !isSports ? transaction.game_id : null;
 
     const profit_loss = amount_won - amount_bet;
@@ -412,26 +418,26 @@ const History = () => {
       2
     )}€`;
 
-    // --- Use lookup maps for names ---
-    const primaryName = isSports
-      ? sportMap[sport_id] || "Unknown Sport"
-      : gameMap[game_id] || "Unknown Game"; // Needs gameMap implementation
-    const houseName = houseMap[house_id] || "Unknown House";
+    // names
+    const primaryName = isSports 
+      ? transaction.sport_name 
+      : transaction.game_name;
+    const houseName = transaction.house_name;
 
-    // --- Format the date ---
+    // date
     const formattedDate = new Date(betted_at).toLocaleDateString("en-GB", {
       day: "numeric",
       month: "short",
       year: "numeric",
     });
 
-    // Icon Logic
+    // icon
     const IconComponent = isSports ? FontAwesome5 : MaterialIcons;
-    const iconName = isSports ? "futbol" : "casino"; // Simple icon choice
+    const iconName = isSports ? "futbol" : "casino";
 
     return (
       <TouchableOpacity
-        key={transaction.id} // Use unique ID as key
+        key={transaction.id}
         style={styles.card}
         onLongPress={() => openActionModal(transaction, type)}
       >
@@ -477,6 +483,29 @@ const History = () => {
     <SafeAreaView style={[SafeViewAndroid.AndroidSafeArea, styles.screen]}>
       {renderActionModal()}
       {renderEditModal()}
+
+      <Modal visible={newItemModalVisible} transparent={true} animationType="fade" onRequestClose={() => setNewItemModalVisible(false)}>
+        <View style={modalStyles.overlay}>
+          <View style={[modalStyles.container, { padding: 20 }]}>
+            <Text style={modalStyles.title}>Add New {newItemType}</Text>
+            <TextInput
+              style={modalStyles.input}
+              placeholder="Enter name..."
+              placeholderTextColor="#999"
+              value={newItemName}
+              onChangeText={setNewItemName}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%', marginTop: 20 }}>
+              <TouchableOpacity onPress={() => setNewItemModalVisible(false)} style={{ padding: 10, marginRight: 10 }}>
+                <Text style={{ color: COLORS.textGray }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleCreateNewItem} style={{ backgroundColor: COLORS.primary, padding: 10, borderRadius: 8 }}>
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       
       {/* TOTALS HEADER */}
       <View style={styles.totalsHeader}>
@@ -492,17 +521,20 @@ const History = () => {
       </View>
 
       {/* HISTORY LIST */}
-      <ScrollView style={styles.scrollView} alwaysBounceVertical>
-        {currentHistory.length > 0 ? (
-          currentHistory.map((item, index) => renderBetCard(item, activeTab))
-        ) : (
+      <FlatList
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: 30 }} 
+        data={currentHistory}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => renderBetCard(item, activeTab)}
+        alwaysBounceVertical={true}
+        ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No {activeTab} history found.</Text>
             <Text style={styles.emptyTextSmall}>Time to place a bet!</Text>
           </View>
-        )}
-        <View style={{ height: 30 }} />
-      </ScrollView>
+        }
+      />
     </SafeAreaView>
   );
 };
@@ -528,7 +560,7 @@ const toggleStyles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     ...Platform.select({
       ios: {
-        borderRadius: 9, // Slightly smaller on iOS for nested look
+        borderRadius: 9,
       },
     }),
   },
@@ -538,7 +570,7 @@ const toggleStyles = StyleSheet.create({
     fontWeight: "600",
   },
   activeText: {
-    color: COLORS.card, // White text for active button
+    color: COLORS.card,
   },
 });
 
@@ -700,7 +732,7 @@ const modalStyles = StyleSheet.create({
   },
   editContainer: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: '100%',
     backgroundColor: COLORS.card,
     borderRadius: 20,
     padding: 25,
@@ -762,5 +794,43 @@ const modalStyles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     color: COLORS.textDark,
+  },
+  selectionScroll: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 5,
+    paddingBottom: 10,
+  },
+  selectionPill: {
+    backgroundColor: COLORS.background,
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  selectionPillAdd: {
+    backgroundColor: COLORS.background,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+  },
+  selectedPill: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  selectionText: {
+    color: COLORS.textDark,
+    fontWeight: "500",
+    fontSize: 14,
+  },
+  selectedText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
 });

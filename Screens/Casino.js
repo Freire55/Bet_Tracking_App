@@ -11,10 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import PagerView from "react-native-pager-view";
-// Import icons for a cleaner look
 import { MaterialIcons, FontAwesome5, Ionicons } from "@expo/vector-icons";
 import {
   getAllGames,
@@ -25,24 +24,25 @@ import {
   insertHouse,
   insertCasinoBet,
   getAllCasinoBets,
+  getCasinoStatsAggregated,
 } from "../database/database";
 import SafeViewAndroid from "./SafeViewAndroid";
 
-// --- CONSTANTS ---
 const { width } = Dimensions.get("window");
 
 const COLORS = {
-  primary: "#4C6EF5", // Blue for main actions/text
-  accent: "#FF4DF7", // Pink for main button
-  background: "#F5F8FD", // Light background for the screen
+  primary: "#4C6EF5",
+  accent: "#FF4DF7",
+  background: "#F5F8FD",
   card: "#FFFFFF",
-  positive: "#10B981", // Green for profit
-  negative: "#EF4444", // Red for loss
+  positive: "#10B981",
+  negative: "#EF4444",
   textDark: "#0C1536",
   textGray: "#718096",
   border: "#E2E8F0",
 };
-// --- END CONSTANTS ---
+
+// MAIN
 
 const Casino = () => {
   const navigation = useNavigation();
@@ -112,20 +112,14 @@ const Casino = () => {
     setSelectedHouse(item.label);
   };
 
-  // Locate and replace handleBetChange and handlePayoutChange:
-
 const handleBetChange = (text) => {
-  // 1. Normalize the text: Replace comma (,) with period (.)
   const normalizedText = text.replace(/,/g, '.');
 
-  // 2. REGEX check: Only allow empty string, one decimal point, and digits.
-  // This prevents inputs like '5..2', '5.2.2', or random letters.
   const regex = /^\d*\.?\d*$/; 
 
   if (regex.test(normalizedText)) {
     setBet(normalizedText); 
   }
-  // If the input is invalid (e.g., trying to type a second '.'), it is ignored.
 };
 
 const handlePayoutChange = (text) => {
@@ -152,7 +146,7 @@ const handlePayoutChange = (text) => {
       await fetchInfo();
       await fetchGamesData();
       setGameModalVisible(false);
-      setNewGame(""); // Clear input after successful save
+      setNewGame("");
     } catch (error) {
       console.error("Error creating new game:", error);
     }
@@ -165,7 +159,7 @@ const handlePayoutChange = (text) => {
       await fetchInfo();
       await fetchGamesData();
       setHouseModalVisible(false);
-      setNewHouse(""); // Clear input after successful save
+      setNewHouse("");
     } catch (error) {
       console.error("Error creating new house:", error);
     }
@@ -173,7 +167,6 @@ const handlePayoutChange = (text) => {
 
   const handleTransaction = async () => {
     if (!selectedGame || !selectedHouse || bet < 0 ) {
-      // In a real app, you'd show an alert/toast here
       console.error("Missing required fields (game, House, Bet, or Legs).");
       return;
     }
@@ -194,7 +187,6 @@ const handlePayoutChange = (text) => {
         house_id: houseObj.id,
       });
 
-      // Clear input fields after transaction
       setBet(0);
       setPayout(0);
       setLegs(0);
@@ -210,7 +202,6 @@ const handlePayoutChange = (text) => {
 
   const handleNoInfo = () => {
     setInfo(true);
-    // In a real app, you'd show a visual alert for missing info
   };
 
   const fetchInfo = async () => {
@@ -232,31 +223,31 @@ const handlePayoutChange = (text) => {
       const gamesArray = (await getAllGames()) || [];
       setGames(gamesArray);
 
-      const allBetsArray = (await getAllCasinoBets()) || [];
+      const aggregatedStats = (await getCasinoStatsAggregated()) || [];
+
+      let grandTotalProfit = 0;
+      let grandTotalWins = 0;
+      let grandTotalLosses = 0;
 
       const totals = [];
       const ratios = [];
 
       for (let game of gamesArray) {
-        const profit = await getProfitByGame(game.id);
-        totals.push(profit || 0);
+        const stat = aggregatedStats.find(g => g.id === game.id) || {};
+        const profit = stat.total_profit || 0;
+        const wins = stat.wins || 0;
+        const losses = stat.losses || 0;
 
-        const gameBets = allBetsArray.filter((b) => b.game_id === game.id);
-
-        const wins = gameBets.filter((b) => b.amount_won > b.amount_bet).length;
-        const losses = gameBets.filter(
-          (b) => b.amount_won < b.amount_bet
-        ).length;
-
+        totals.push(profit);
         ratios.push([wins, losses]);
+
+        grandTotalProfit += profit;
+        grandTotalWins += wins;
+        grandTotalLosses += losses;
       }
 
-      const totalProfit = totals.reduce((acc, val) => acc + val, 0);
-      const totalWins = ratios.reduce((acc, val) => acc + val[0], 0);
-      const totalLosses = ratios.reduce((acc, val) => acc + val[1], 0);
-
-      setGamesTotals([totalProfit, ...totals]);
-      setGamesRatios([[totalWins, totalLosses], ...ratios]);
+      setGamesTotals([grandTotalProfit, ...totals]);
+      setGamesRatios([[grandTotalWins, grandTotalLosses], ...ratios]);
     } catch (error) {
       console.error("DB FATAL CRASH: Error fetching games Data:", error);
     }
@@ -272,7 +263,7 @@ const handlePayoutChange = (text) => {
     onSave
   ) => (
     <Modal
-      animationType="fade" // Changed to fade for a smoother look
+      animationType="fade"
       transparent={true}
       visible={isVisible}
       onRequestClose={onClose}
@@ -307,10 +298,9 @@ const handlePayoutChange = (text) => {
 
   const renderSidebarItem = (page) => {
     const isTotal = page.key === "0";
-    // Determine the color based on profit/loss
     const profitColorStyle =
       page.valor >= 0 ? styles.positiveColor : styles.negativeColor;
-    const icon = isTotal ? "chart-line" : "dumbbell"; // FontAwesome5
+    const icon = isTotal ? "chart-line" : "dumbbell";
 
     return (
       <View style={styles.pagerViewPage} key={page.key}>
@@ -339,7 +329,7 @@ const handlePayoutChange = (text) => {
     );
   };
 
-  const renderSelectionCard = (
+  const renderSelectionCard = useCallback((
     title,
     items,
     selectedItem,
@@ -349,7 +339,6 @@ const handlePayoutChange = (text) => {
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
 
-      {/* ScrollView for items and Add New button */}
       <ScrollView
         horizontal={true}
         showsHorizontalScrollIndicator={false}
@@ -381,13 +370,12 @@ const handlePayoutChange = (text) => {
           </Text>
         )}
       </ScrollView>
-      {/* ADD NEW BUTTON - Always placed at the end of the scroll view */}
       <TouchableOpacity style={styles.selectionPillAdd} onPress={onAddPress}>
         <Ionicons name="add" size={20} color={COLORS.primary} />
         <Text style={[styles.selectionText, { marginLeft: 5 }]}>Add New</Text>
       </TouchableOpacity>
     </View>
-  );
+  ), []);
 
   return (
     <SafeAreaView style={[SafeViewAndroid.AndroidSafeArea, styles.screen]}>
@@ -395,18 +383,16 @@ const handlePayoutChange = (text) => {
         <Text style={styles.headerTitle}>📊 Bet Tracker</Text>
       </View>
 
-      {/* PagerView for Totals/games - Cleaned up to look like a carousel */}
       <View style={styles.pagerContainer}>
         <PagerView style={styles.pagerView} initialPage={0}>
           {data.map(renderSidebarItem)}
         </PagerView>
       </View>
 
-      {/* Transaction Input Area */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} // Adjust if needed
+        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
       >
         <ScrollView
           style={styles.container}
@@ -428,7 +414,6 @@ const handlePayoutChange = (text) => {
             () => setHouseModalVisible(true)
           )}
 
-          {/* Input Area - Grouped in a card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Transaction Details</Text>
             <View style={styles.inputArea}>
@@ -458,7 +443,6 @@ const handlePayoutChange = (text) => {
             </View>
           </View>
 
-          {/* Button */}
           <TouchableOpacity
             style={styles.button}
             onPress={
@@ -471,12 +455,10 @@ const handlePayoutChange = (text) => {
             <Text style={styles.buttonText}>🤑 Record Bet 🤑</Text>
           </TouchableOpacity>
 
-          {/* Spacer for scroll content */}
           <View style={{ height: 50 }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Modals */}
       {renderModal(
         gameModalVisible,
         () => setGameModalVisible(false),
@@ -503,10 +485,10 @@ const handlePayoutChange = (text) => {
 export default Casino;
 
 const styles = StyleSheet.create({
-  // --- LAYOUT ---
+  // LAYOUT
   screen: {
     flex: 1,
-    backgroundColor: COLORS.card, // White background
+    backgroundColor: COLORS.card,
   },
   header: {
     flexDirection: "row",
@@ -539,9 +521,8 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
 
-  // --- PAGER VIEW (TOP CAROUSEL) ---
   pagerContainer: {
-    height: width * 0.45, // Set height relative to width
+    height: width * 0.45,
     paddingHorizontal: 10,
     marginBottom: 10,
   },
@@ -561,7 +542,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
 
-    // Modern shadow for card look
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -569,7 +549,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   totalItem: {
-    backgroundColor: COLORS.primary, // Highlight total card
+    backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
     shadowColor: COLORS.primary,
     shadowOpacity: 0.3,
@@ -582,7 +562,7 @@ const styles = StyleSheet.create({
   },
   ratiosText: {
     fontSize: 14,
-    color: COLORS.textGray, // Soft gray
+    color: COLORS.textGray,
     marginBottom: 8,
   },
   balanceText: {
@@ -592,14 +572,12 @@ const styles = StyleSheet.create({
   positiveColor: { color: COLORS.positive },
   negativeColor: { color: COLORS.negative },
 
-  // --- CARD & INPUTS ---
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 20,
     padding: 20,
     marginBottom: 15,
 
-    // Prominent shadow for card separation
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.08,
@@ -617,7 +595,6 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
 
-  // Selection Pills (game/House)
   selectionScroll: {
     flexDirection: "row",
     gap: 10,
@@ -650,7 +627,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Input Fields
   inputArea: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -676,7 +652,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
 
-  // --- BUTTON ---
   button: {
     backgroundColor: COLORS.accent,
     borderRadius: 30,
@@ -684,7 +659,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 25,
 
-    // Shadow for the main action button
     shadowColor: COLORS.accent,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
@@ -697,7 +671,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  // --- MODAL ---
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
